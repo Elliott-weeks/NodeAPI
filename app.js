@@ -8,3 +8,5 @@ app.use(parser.json());
 app.use(loginRoutes);
 
 app.listen(8080);
+
+module.exports = app;
