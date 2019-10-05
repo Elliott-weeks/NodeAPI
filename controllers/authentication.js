@@ -1,13 +1,13 @@
 const AWS = require("aws-sdk");
-const parser = require("body-parser");
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const tableName = "Users_Table";
 const fs = require('fs');
+const awsUtil = require('../Utils/awsUtils');
 
 exports.userLogin = (req, res, next) => {
     var jwt = require('jsonwebtoken');
-    var docClient = getAwsDoc();
+    var docClient = awsUtil.getAwsDoc();
     if (!req.body.hasOwnProperty('email') && !req.body.hasOwnProperty('password')) {
         res.status(400).json({
             "status": "Failed",
@@ -19,7 +19,7 @@ exports.userLogin = (req, res, next) => {
         var email = req.body.email;
         var password = req.body.password;
 
-        docClient.query(awsSearchByEmailParms(email), (err, data) => {
+        docClient.query(awsUtil.awsSearchByEmailParms(email,tableName), (err, data) => {
             if (err) {
                 res.status(503).json({
                     "status": "Failed",
@@ -32,14 +32,8 @@ exports.userLogin = (req, res, next) => {
                 var key = fs.readFileSync('private.key');
                 var token = jwt.sign(payload, key, {
                     algorithm: 'RS256',
-                    expiresIn: '1h'
+                    expiresIn: '1s'
                 });
-                jwt.verify(token, fs.readFileSync('public.key'), {
-                    algorithms: ['RS256']
-                }, function (err, decoded) {
-
-                });
-                var decoded = jwt.decode(token);
 
                 res.status(200).json({
                     "status": "success",
@@ -66,7 +60,7 @@ exports.userLogin = (req, res, next) => {
 };
 
 exports.createUser = (req, res, next) => {
-    var docClient = getAwsDoc();
+    var docClient = awsUtil.getAwsDoc();
 
     if (!req.body.hasOwnProperty('email') && !req.body.hasOwnProperty('password')) {
         res.status(400).json({
@@ -77,8 +71,9 @@ exports.createUser = (req, res, next) => {
         var email = req.body.email;
         var pwd = encryptPwd(req.body.password);
 
-        docClient.query(awsSearchByEmailParms(email), (err, data) => {
+        docClient.query(awsUtil.awsSearchByEmailParms(email, tableName), (err, data) => {
             if (err) {
+                console.log(err);
                 res.status(503).json({
                     "status": "Failed",
                     "error": err
@@ -120,35 +115,4 @@ exports.createUser = (req, res, next) => {
 
 function encryptPwd(password) {
     return bcrypt.hashSync(password, saltRounds);
-}
-
-function getAwsDoc() {
-    AWS.config.update({
-        region: "eu-west-1",
-        endpoint: "http://localhost:8000"
-    });
-    return new AWS.DynamoDB.DocumentClient();
-
-}
-
-function awsSearchByEmailParms(email) {
-    return {
-        TableName: tableName,
-        KeyConditionExpression: "#Email = :email",
-        ExpressionAttributeNames: {
-            "#Email": "Email"
-        },
-        ExpressionAttributeValues: {
-            ":email": email
-
-        }
-    };
-
-}
-
-function checkParams(obj) {
-    console.log(obj);
-
-
-
 }
